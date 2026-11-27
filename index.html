@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jos</title>
+  <style>
+    body{margin:0;font-family:system-ui,sans-serif;background:#f4f5f9;color:#111}
+    .login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;background:#4c1d95}
+    .box{width:100%;max-width:360px;background:#fff;border-radius:18px;padding:22px}
+    .hide{display:none!important}
+    input{width:100%;box-sizing:border-box;padding:10px;margin:6px 0 12px;border:1px solid #ccc;border-radius:10px;font-size:14px}
+    label{display:block;font-size:13px;font-weight:700;margin-top:4px}
+    button{border:0;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
+    .main-btn{width:100%;background:#4c1d95;color:#fff}
+    header{background:#4c1d95;color:#fff;padding:14px 16px;display:flex;justify-content:space-between;align-items:center}
+    .wrap{max-width:680px;margin:auto;padding:16px}
+    .card{background:#fff;border-radius:14px;padding:16px;margin-bottom:14px}
+    .row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #eee;flex-wrap:wrap}
+    .row:last-child{border-bottom:0}
+    .actions{display:flex;gap:6px;align-items:center}
+    .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:14px;z-index:50}
+    .panel{width:100%;max-width:420px;background:#fff;border-radius:16px;padding:18px}
+  </style>
+</head>
+<body>
+  <div id="loginBox" class="login">
+    <div class="box">
+      <h2 style="margin:0 0 10px;color:#4c1d95">Jos</h2>
+      <div id="err" style="color:#c00;font-size:13px;margin-bottom:8px"></div>
+      <form id="fLogin" novalidate>
+        <input id="u" type="text" placeholder="اسم المستخدم (1234)" />
+        <input id="p" type="password" placeholder="كلمة المرور (admin)" />
+        <button class="main-btn" type="submit">دخول</button>
+      </form>
+      <button id="fill" type="button" style="width:100%;margin-top:8px;background:#111;color:#fff">تعبئة 1234 / admin</button>
+    </div>
+  </div>
+
+  <div id="app" class="hide">
+    <header>
+      <strong>Jos</strong>
+      <div class="actions">
+        <button id="openGear" type="button" style="background:#fff;color:#4c1d95">⚙️</button>
+        <button id="outBtn" type="button" style="background:#eee;color:#111">خروج</button>
+      </div>
+    </header>
+    <div class="wrap">
+      <div class="card">
+        <h3 style="margin:0 0 10px">إضافة باقة</h3>
+        <form id="fAdd">
+          <label>اسم الباقة</label>
+          <input id="n" placeholder="مثال: 130 جيجا" required />
+          <label>السعة GB</label>
+          <input id="g" type="number" min="1" placeholder="السعة GB" required />
+          <label>السعر</label>
+          <input id="pr" type="number" min="0" step="0.5" placeholder="السعر" required />
+          <button class="main-btn" type="submit">إضافة</button>
+        </form>
+      </div>
+      <div class="card">
+        <h3 style="margin:0 0 10px">الباقات</h3>
+        <div id="list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal" class="modal hide">
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h3 id="modalTitle" style="margin:0">تعديل الباقة وسعرها</h3>
+        <button id="closeGear" type="button">✕</button>
+      </div>
+      <div id="editPrices"></div>
+      <button id="savePrices" class="main-btn" type="button" style="background:#059669;margin-top:10px">حفظ</button>
+    </div>
+  </div>
+
+  <script>
+    const KEY = "jos_pkg_price_v1";
+    const def = [
+      { name: "130 جيجا", gb: 130, price: 210 },
+      { name: "190 جيجا", gb: 190, price: 290 },
+      { name: "200 جيجا", gb: 200, price: 310 }
+    ];
+    let pkgs = JSON.parse(localStorage.getItem(KEY) || "null") || def;
+    let editIndex = null;
+
+    const loginBox = document.getElementById("loginBox");
+    const app = document.getElementById("app");
+    const err = document.getElementById("err");
+    const u = document.getElementById("u");
+    const p = document.getElementById("p");
+    const fLogin = document.getElementById("fLogin");
+    const fill = document.getElementById("fill");
+    const outBtn = document.getElementById("outBtn");
+    const fAdd = document.getElementById("fAdd");
+    const n = document.getElementById("n");
+    const g = document.getElementById("g");
+    const pr = document.getElementById("pr");
+    const list = document.getElementById("list");
+    const modal = document.getElementById("modal");
+    const modalTitle = document.getElementById("modalTitle");
+    const editPrices = document.getElementById("editPrices");
+    const openGear = document.getElementById("openGear");
+    const closeGear = document.getElementById("closeGear");
+    const savePrices = document.getElementById("savePrices");
+
+    const save = () => localStorage.setItem(KEY, JSON.stringify(pkgs));
+
+    const draw = () => {
+      list.innerHTML = pkgs.map((x, i) =>
+        `<div class="row">
+          <div><b>${x.name}</b><div style="font-size:12px;color:#666">${x.gb} GB</div></div>
+          <div class="actions">
+            <b>${x.price} ج</b>
+            <button onclick="openEditPkg(${i})" type="button" style="background:#dbeafe;color:#1d4ed8">تعديل</button>
+            <button onclick="delPkg(${i})" type="button" style="background:#fee2e2;color:#b91c1c">حذف</button>
+          </div>
+        </div>`
+      ).join("") || "<p>لا توجد باقات</p>";
+    };
+
+    window.delPkg = (i) => {
+      pkgs.splice(i, 1);
+      save();
+      draw();
+    };
+
+    window.openEditPkg = (i) => {
+      editIndex = i;
+      const x = pkgs[i];
+      modalTitle.textContent = "تعديل الباقة وسعرها";
+      editPrices.innerHTML =
+        `<label>اسم الباقة</label><input id="edName" type="text" value="${x.name}" />` +
+        `<label>السعة GB</label><input id="edGb" type="number" min="1" value="${x.gb}" />` +
+        `<label>السعر</label><input id="edPrice" type="number" min="0" step="0.5" value="${x.price}" />`;
+      modal.classList.remove("hide");
+    };
+
+    function enterApp() {
+      err.textContent = "";
+      loginBox.classList.add("hide");
+      app.classList.remove("hide");
+      draw();
+    }
+
+    fill.onclick = () => {
+      u.value = "1234";
+      p.value = "admin";
+      enterApp();
+    };
+
+    fLogin.onsubmit = (e) => {
+      e.preventDefault();
+      const userVal = (u.value || "").trim();
+      const passVal = (p.value || "").trim();
+      if ((userVal === "1234" && passVal === "admin") || (!userVal && !passVal)) {
+        enterApp();
+      } else {
+        err.textContent = "بيانات الدخول غير صحيحة";
+      }
+    };
+
+    outBtn.onclick = () => {
+      app.classList.add("hide");
+      loginBox.classList.remove("hide");
+    };
+
+    fAdd.onsubmit = (e) => {
+      e.preventDefault();
+      pkgs.push({ name: n.value.trim(), gb: +g.value, price: +pr.value });
+      save();
+      draw();
+      fAdd.reset();
+    };
+
+    openGear.onclick = () => {
+      editIndex = null;
+      modalTitle.textContent = "⚙️ تعديل الأسعار";
+      editPrices.innerHTML = pkgs.map((x, i) =>
+        `<label>${x.name}</label><input type="number" step="0.5" data-i="${i}" value="${x.price}" />`
+      ).join("");
+      modal.classList.remove("hide");
+    };
+
+    closeGear.onclick = () => modal.classList.add("hide");
+
+    savePrices.onclick = () => {
+      if (editIndex !== null) {
+        const nameVal = document.getElementById("edName").value.trim();
+        const gbVal = +document.getElementById("edGb").value;
+        const priceVal = +document.getElementById("edPrice").value;
+        if (nameVal) pkgs[editIndex].name = nameVal;
+        if (gbVal > 0) pkgs[editIndex].gb = gbVal;
+        pkgs[editIndex].price = priceVal;
+      } else {
+        editPrices.querySelectorAll("input").forEach(inp => {
+          pkgs[+inp.dataset.i].price = +inp.value;
+        });
+      }
+      save();
+      draw();
+      modal.classList.add("hide");
+    };
+  </script>
+</body>
+</html>
